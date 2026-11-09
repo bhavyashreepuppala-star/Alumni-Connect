@@ -1,0 +1,224 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// ENUMS
+// -------------------------------------------------------------
+enum UserRole {
+  STUDENT
+  ALUMNI
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SkillLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum AccountProvider {
+  LINKEDIN
+  GOOGLE
+  GITHUB
+}
+
+// -------------------------------------------------------------
+// USER CORE MODEL
+// -------------------------------------------------------------
+model User {
+  id              String          @id @default(cuid())
+  email           String          @unique
+  passwordHash    String
+  role            UserRole        @default(STUDENT)
+  isEmailVerified Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  avatarUrl       String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Role-specific 1-to-1 profiles
+  studentProfile  StudentProfile?
+  alumniProfile   AlumniProfile?
+  adminProfile    AdminProfile?
+
+  // Social authentication & credentials
+  linkedAccounts  LinkedAccount[]
+
+  // Many-to-many relationship with Skills
+  userSkills      UserSkill[]
+
+  @@index([role])
+  @@index([email])
+}
+
+// -------------------------------------------------------------
+// STUDENT PROFILE
+// -------------------------------------------------------------
+model StudentProfile {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  user                   User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rollNumber             String    @unique
+  department             String
+  degree                 String    @default("B.Tech")
+  expectedGraduationYear Int
+  currentSemester        Int?
+  cgpa                   Float?
+  bio                    String?   @db.Text
+  headline               String?
+  resumeUrl              String?
+  portfolioUrl           String?
+  githubUrl              String?
+  linkedinUrl            String?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  @@index([department])
+  @@index([expectedGraduationYear])
+}
+
+// -------------------------------------------------------------
+// ALUMNI PROFILE
+// -------------------------------------------------------------
+model AlumniProfile {
+  id                 String               @id @default(cuid())
+  userId             String               @unique
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  graduationYear     Int
+  degree             String               @default("B.Tech")
+  department         String
+  currentCompany     String?
+  currentDesignation String?
+  industry           String?
+  yearsOfExperience  Int                  @default(0)
+  city               String?
+  country            String?
+  bio                String?              @db.Text
+  linkedinUrl        String?
+  isWillingToMentor  Boolean              @default(true)
+  mentorshipTopics   String?
+  isVerified         Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  // Verification verification submissions
+  verifications      AlumniVerification[]
+
+  @@index([currentCompany])
+  @@index([industry])
+  @@index([graduationYear])
+  @@index([isVerified])
+  @@index([isWillingToMentor])
+}
+
+// -------------------------------------------------------------
+// ADMIN PROFILE
+// -------------------------------------------------------------
+model AdminProfile {
+  id                   String               @id @default(cuid())
+  userId               String               @unique
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  employeeId           String               @unique
+  department           String
+  designation          String
+  permissions          String?              @default("VERIFY_ALUMNI,MANAGE_USERS,VIEW_ANALYTICS")
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  // Verifications reviewed by this administrator
+  reviewedVerifications AlumniVerification[]
+
+  @@index([department])
+}
+
+// -------------------------------------------------------------
+// LINKED ACCOUNTS (OAuth 2.0 / OpenID Connect)
+// -------------------------------------------------------------
+model LinkedAccount {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          AccountProvider
+  providerAccountId String
+  profileUrl        String?
+  accessToken       String?         @db.Text
+  refreshToken      String?         @db.Text
+  expiresAt         DateTime?
+  scope             String?
+  rawProfile        String?         @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// -------------------------------------------------------------
+// ALUMNI VERIFICATION AUDIT WORKFLOW
+// -------------------------------------------------------------
+model AlumniVerification {
+  id                String             @id @default(cuid())
+  alumniProfileId   String
+  alumniProfile     AlumniProfile      @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
+  status            VerificationStatus @default(PENDING)
+  documentType      String             // e.g., DEGREE_CERTIFICATE, TRANSCRIPT, ID_CARD, LINKEDIN_OIDC
+  documentUrl       String
+  submissionNotes   String?            @db.Text
+  reviewNotes       String?            @db.Text
+  reviewedByAdminId String?
+  reviewedByAdmin   AdminProfile?      @relation(fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([alumniProfileId])
+  @@index([status])
+  @@index([reviewedByAdminId])
+}
+
+// -------------------------------------------------------------
+// SKILL REPOSITORY
+// -------------------------------------------------------------
+model Skill {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  slug       String      @unique
+  category   String      // e.g., Software Engineering, Data & AI, Cloud & DevOps, Management
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  userSkills UserSkill[]
+
+  @@index([category])
+}
+
+// -------------------------------------------------------------
+// USER SKILL (Associative Table)
+// -------------------------------------------------------------
+model UserSkill {
+  id                String     @id @default(cuid())
+  userId            String
+  user              User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skillId           String
+  skill             Skill      @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  proficiency       SkillLevel @default(INTERMEDIATE)
+  endorsementsCount Int        @default(0)
+  createdAt         DateTime   @default(now())
+
+  @@unique([userId, skillId])
+  @@index([userId])
+  @@index([skillId])
+}
