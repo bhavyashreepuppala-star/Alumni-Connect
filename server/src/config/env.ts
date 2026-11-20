@@ -15,6 +15,9 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET must be at least 16 characters long').default('alumni-connect-secure-dev-secret-key-32chars'),
   JWT_EXPIRES_IN: z.string().default('7d'),
 
+  // Institutional Email Configuration (Optional comma-separated allowed domains, e.g. "university.edu,college.edu")
+  INSTITUTION_EMAIL_DOMAINS: z.string().optional().default(''),
+
   // LinkedIn OAuth
   LINKEDIN_CLIENT_ID: z.string().optional().default(''),
   LINKEDIN_CLIENT_SECRET: z.string().optional().default(''),

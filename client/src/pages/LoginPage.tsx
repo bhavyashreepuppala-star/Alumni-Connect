@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, ShieldCheck, Lock, Mail, ArrowRight, UserCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import {
+  GraduationCap,
+  ShieldCheck,
+  Lock,
+  Mail,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Sparkles,
+  AlertCircle,
+} from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/Card';
+import { api } from '../lib/api';
 
 type RoleType = 'STUDENT' | 'ALUMNI' | 'ADMIN';
 
@@ -12,6 +23,7 @@ export const LoginPage: React.FC = () => {
   const [role, setRole] = useState<RoleType>('STUDENT');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -32,43 +44,46 @@ export const LoginPage: React.FC = () => {
     e.preventDefault();
     setErrorMessage('');
 
-    if (!email || !password) {
-      setErrorMessage('Please fill in both email and password.');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
+      setErrorMessage('Please enter both your institutional email and password.');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+      // Authenticate against real backend database
+      const response = await api.login(trimmedEmail, password);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed');
+      const authenticatedUser = response.data?.user;
+      if (!authenticatedUser) {
+        throw new Error('Malformed response from authentication server.');
       }
 
-      // Store simulated or real session token
-      if (data.data?.token) {
-        localStorage.setItem('alumni_connect_token', data.data.token);
-        localStorage.setItem('alumni_connect_user', JSON.stringify(data.data.user));
-      }
+      // Route strictly based on authenticated database role & account status
+      const userRole = authenticatedUser.role;
+      const accountStatus = authenticatedUser.status;
 
-      // Route to appropriate role dashboard
-      const targetRole = data.data?.user?.role || role;
-      if (targetRole === 'STUDENT') navigate('/dashboard/student');
-      else if (targetRole === 'ALUMNI') navigate('/dashboard/alumni');
-      else navigate('/dashboard/admin');
-    } catch (err: unknown) {
-      // In offline or degraded DB mode, allow seamless demo login fallback
-      console.warn('Backend login fallback to role router:', err);
-      if (role === 'STUDENT') navigate('/dashboard/student');
-      else if (role === 'ALUMNI') navigate('/dashboard/alumni');
-      else navigate('/dashboard/admin');
+      if (userRole === 'STUDENT') {
+        if (accountStatus === 'VERIFIED') {
+          navigate('/dashboard/student');
+        } else {
+          // PENDING_VERIFICATION, REJECTED, SUSPENDED accounts go to dedicated status portal
+          navigate('/account-status');
+        }
+      } else if (userRole === 'ALUMNI') {
+        navigate('/dashboard/alumni');
+      } else if (userRole === 'ADMIN') {
+        navigate('/dashboard/admin');
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setErrorMessage(
+        err.message || 'Invalid institutional email or password. Please verify your credentials and try again.'
+      );
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +109,7 @@ export const LoginPage: React.FC = () => {
           <CardHeader className="space-y-1 pb-4">
             <CardTitle className="text-2xl text-center text-navy-950">Welcome Back</CardTitle>
             <CardDescription className="text-center text-slate-500">
-              Select your role to access your personalized campus dashboard
+              Sign in with your verified institutional credentials
             </CardDescription>
 
             {/* Role Switcher Tabs */}
@@ -124,7 +139,7 @@ export const LoginPage: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-brand-600 shrink-0" />
                 <span>
-                  Demo Mode: Quick-fill <strong>{role.toLowerCase()}</strong> credentials
+                  Demo Account: <strong>{role.toLowerCase()}</strong>
                 </span>
               </div>
               <button
@@ -137,8 +152,9 @@ export const LoginPage: React.FC = () => {
             </div>
 
             {errorMessage && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-xs text-red-700 border border-red-200">
-                {errorMessage}
+              <div className="mb-4 rounded-lg bg-red-50 p-3 text-xs text-red-700 border border-red-200 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
               </div>
             )}
 
@@ -149,23 +165,36 @@ export const LoginPage: React.FC = () => {
                 placeholder="name@university.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 required
               />
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-medium text-slate-700">Password</label>
-                  <a href="#" className="text-xs text-brand-600 hover:underline">
-                    Forgot password?
-                  </a>
+                  <span className="text-xs text-slate-400">
+                    Contact admin if forgotten
+                  </span>
                 </div>
-                <Input
-                  type="password"
-                  placeholder="••••••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <Input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="••••••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    required
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-xs text-slate-600 pt-1">
@@ -173,7 +202,7 @@ export const LoginPage: React.FC = () => {
                   <input type="checkbox" defaultChecked className="rounded border-slate-300 text-brand-600" />
                   <span>Remember this device</span>
                 </label>
-                <span className="text-slate-400">Institutional SSO enabled</span>
+                <span className="text-slate-400">Institutional SSO ready</span>
               </div>
 
               <Button
@@ -220,9 +249,14 @@ export const LoginPage: React.FC = () => {
 
           <CardFooter className="flex flex-col border-t border-slate-100 pt-4 pb-6 text-center text-xs text-slate-500">
             <p>
-              Don’t have an Alumni Connect account yet?{' '}
-              <Link to={`/register?role=${role}`} className="font-semibold text-brand-600 hover:underline">
-                Register here
+              New to Alumni Connect?{' '}
+              <Link to="/register?role=STUDENT" className="font-semibold text-brand-600 hover:underline">
+                Register as Student
+              </Link>
+            </p>
+            <p className="mt-2 text-slate-400">
+              <Link to="/" className="hover:text-slate-600 underline">
+                Return to Campus Homepage
               </Link>
             </p>
           </CardFooter>
@@ -231,7 +265,7 @@ export const LoginPage: React.FC = () => {
         {/* Security Notice */}
         <p className="mt-4 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
           <ShieldCheck className="h-4 w-4 text-slate-400" />
-          <span>Encrypted with 256-bit institutional credentials validation</span>
+          <span>Encrypted with institutional credential protection</span>
         </p>
       </div>
     </div>

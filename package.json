@@ -18,7 +18,8 @@
     "prisma:migrate": "npm run prisma:migrate --workspace=server",
     "prisma:seed": "npm run prisma:seed --workspace=server",
     "prisma:studio": "npm run prisma:studio --workspace=server",
-    "test:health": "curl http://localhost:5000/api/health"
+    "test:health": "curl http://localhost:5000/api/health",
+    "test:registration": "npm run test:registration --workspace=server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

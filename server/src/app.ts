@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import { env } from './config/env';
 import { healthRoutes } from './routes/health.routes';
 import { authRoutes } from './routes/auth.routes';
+import { studentRoutes } from './routes/student.routes';
 import { linkedinRoutes } from './routes/linkedin.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
@@ -36,6 +37,7 @@ if (env.NODE_ENV !== 'test') {
 // API Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/student', studentRoutes);
 app.use('/api/linkedin', linkedinRoutes);
 
 // Root greeting / status

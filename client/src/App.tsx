@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { AccountStatusPage } from './pages/AccountStatusPage';
 import { StudentDashboard } from './pages/dashboards/StudentDashboard';
 import { AlumniDashboard } from './pages/dashboards/AlumniDashboard';
 import { AdminDashboard } from './pages/dashboards/AdminDashboard';

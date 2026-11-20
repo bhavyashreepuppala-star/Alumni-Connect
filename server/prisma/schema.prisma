@@ -16,10 +16,71 @@ enum UserRole {
   ADMIN
 }
 
+enum AccountStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
 enum VerificationStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum StudentVerificationMethod {
+  COLLEGE_EMAIL_OTP
+  COLLEGE_ID_CARD
+  ADMISSION_ORDER
+  REGISTRAR_DATABASE_MATCH
+}
+
+enum SuspiciousReportStatus {
+  FLAGGED
+  INVESTIGATING
+  DISMISSED
+  ACTION_TAKEN
+}
+
+enum UserReportCategory {
+  HARASSMENT
+  SPAM
+  FAKE_PROFILE
+  IMPERSONATION
+  INAPPROPRIATE_CONTENT
+  OTHER
+}
+
+enum UserReportStatus {
+  PENDING
+  UNDER_INVESTIGATION
+  ACTION_TAKEN
+  DISMISSED
+}
+
+enum AppealAction {
+  VERIFICATION_REJECTION
+  ACCOUNT_SUSPENSION
+}
+
+enum AppealStatus {
+  PENDING
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum AdminActionType {
+  USER_APPROVE
+  USER_REJECT
+  USER_SUSPEND
+  USER_REINSTATE
+  POST_DELETE
+  JOB_MODERATE
+  EVENT_CANCEL
+  ANNOUNCEMENT_PUBLISH
+  APPEAL_RESOLVE
 }
 
 enum SkillLevel {
@@ -35,14 +96,183 @@ enum AccountProvider {
   GITHUB
 }
 
+enum MentorshipStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  COMPLETED
+}
+
+enum MeetingType {
+  GOOGLE_MEET
+  ZOOM
+  IN_PERSON
+  CUSTOM_URL
+}
+
+enum SessionStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  RESCHEDULED
+  NO_SHOW
+  CANCELLED
+}
+
+enum MessageRequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+}
+
+enum ConversationType {
+  DIRECT_MENTORSHIP
+  PEER_DIRECT
+  ADMIN_SUPPORT
+}
+
+enum OpportunityType {
+  FULL_TIME
+  INTERNSHIP
+  PART_TIME
+  REFERRAL
+}
+
+enum WorkplaceType {
+  ON_SITE
+  HYBRID
+  REMOTE
+}
+
+enum JobPostingStatus {
+  ACTIVE
+  EXPIRED
+  CLOSED
+  SUSPENDED
+}
+
+enum JobApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  REJECTED
+  OFFERED
+}
+
+enum EventCategory {
+  ALUMNI_MEET
+  WEBINAR
+  WORKSHOP
+  REUNION
+  PLACEMENT_TALK
+  GUEST_LECTURE
+}
+
+enum EventAudience {
+  ALL
+  STUDENTS_ONLY
+  ALUMNI_ONLY
+  DEPARTMENT_SPECIFIC
+}
+
+enum EventStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum AttendanceStatus {
+  REGISTERED
+  ATTENDED
+  ABSENT
+  CANCELLED
+}
+
+enum AnnouncementCategory {
+  GENERAL_CIRCULAR
+  PLACEMENT_UPDATE
+  ALUMNI_MEET_NOTICE
+  ACADEMIC_CALENDAR
+  DEPARTMENTAL
+  URGENT
+}
+
+enum AnnouncementAudience {
+  ALL
+  STUDENTS_ONLY
+  ALUMNI_ONLY
+  DEPARTMENT_SPECIFIC
+}
+
+enum AnnouncementPriority {
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ForumChannel {
+  CAREER_ADVICE
+  INTERVIEW_PREP
+  PROJECTS_TECH
+  CAMPUS_LIFE
+  GENERAL
+}
+
+enum PostStatus {
+  ACTIVE
+  FLAGGED
+  REMOVED_BY_MODERATOR
+}
+
+enum ReportReason {
+  SPAM
+  HARASSMENT
+  MISINFORMATION
+  OFF_TOPIC
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  ACTION_TAKEN
+  DISMISSED
+}
+
+enum NotificationType {
+  MENTORSHIP_REQUEST_RECEIVED
+  MENTORSHIP_ACCEPTED
+  MENTORSHIP_DECLINED
+  MESSAGE_REQUEST_RECEIVED
+  MESSAGE_REQUEST_ACCEPTED
+  JOB_APPLICATION_STATUS_UPDATED
+  EVENT_REMINDER
+  ANNOUNCEMENT_NEW
+  VERIFICATION_APPROVED
+  VERIFICATION_REJECTED
+  ACCOUNT_SUSPENDED
+  APPEAL_RESOLVED
+}
+
 // -------------------------------------------------------------
-// USER CORE MODEL
+// USER CORE MODEL (REUSED & EXTENDED)
 // -------------------------------------------------------------
 model User {
   id              String          @id @default(cuid())
   email           String          @unique
   passwordHash    String
   role            UserRole        @default(STUDENT)
+  status          AccountStatus   @default(PENDING_VERIFICATION)
+  fullName        String?
+  phoneNumber     String?
   isEmailVerified Boolean         @default(false)
   isActive        Boolean         @default(true)
   avatarUrl       String?
@@ -57,15 +287,45 @@ model User {
   // Social authentication & credentials
   linkedAccounts  LinkedAccount[]
 
-  // Many-to-many relationship with Skills
+  // Skills
   userSkills      UserSkill[]
 
+  // Messaging & Connections
+  sentMessageRequests     MessageRequest[]          @relation("SentMessageRequests")
+  receivedMessageRequests MessageRequest[]          @relation("ReceivedMessageRequests")
+  conversationMemberships ConversationParticipant[]
+  sentMessages            DirectMessage[]
+  blockedUsers            UserBlock[]               @relation("BlockerUsers")
+  blockedByUsers          UserBlock[]               @relation("BlockedUsers")
+
+  // Jobs
+  jobPostings             JobPosting[]
+  savedJobs               SavedJob[]
+  jobStatusChanges        JobApplicationStatusHistory[]
+
+  // Events & Community
+  eventRegistrations      EventRegistration[]
+  discussionPosts         DiscussionPost[]
+  discussionComments      DiscussionComment[]
+  postLikes               PostLike[]
+  postReports             PostReport[]
+
+  // Trust, Safety & Moderation
+  userReportsSent         UserReport[]              @relation("ReportedByUser")
+  userReportsReceived     UserReport[]              @relation("ReportedTargetUser")
+  suspiciousProfileReports SuspiciousProfileReport[]
+  accountAppeals          AccountAppeal[]
+
+  // Notifications
+  notifications           Notification[]
+
   @@index([role])
+  @@index([status])
   @@index([email])
 }
 
 // -------------------------------------------------------------
-// STUDENT PROFILE
+// STUDENT PROFILE (REUSED & EXTENDED)
 // -------------------------------------------------------------
 model StudentProfile {
   id                     String    @id @default(cuid())
@@ -83,15 +343,21 @@ model StudentProfile {
   portfolioUrl           String?
   githubUrl              String?
   linkedinUrl            String?
+  isVerified             Boolean   @default(false)
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
+  verifications          StudentVerification[]
+  mentorshipRequests     MentorshipRequest[]
+  jobApplications        JobApplication[]
+
   @@index([department])
   @@index([expectedGraduationYear])
+  @@index([isVerified])
 }
 
 // -------------------------------------------------------------
-// ALUMNI PROFILE
+// ALUMNI PROFILE (REUSED & EXTENDED)
 // -------------------------------------------------------------
 model AlumniProfile {
   id                 String               @id @default(cuid())
@@ -109,13 +375,14 @@ model AlumniProfile {
   bio                String?              @db.Text
   linkedinUrl        String?
   isWillingToMentor  Boolean              @default(true)
+  maxMentees         Int                  @default(2)
   mentorshipTopics   String?
   isVerified         Boolean              @default(false)
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
-  // Verification verification submissions
   verifications      AlumniVerification[]
+  mentorshipRequests MentorshipRequest[]
 
   @@index([currentCompany])
   @@index([industry])
@@ -125,7 +392,7 @@ model AlumniProfile {
 }
 
 // -------------------------------------------------------------
-// ADMIN PROFILE
+// ADMIN PROFILE (REUSED)
 // -------------------------------------------------------------
 model AdminProfile {
   id                   String               @id @default(cuid())
@@ -138,14 +405,22 @@ model AdminProfile {
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
-  // Verifications reviewed by this administrator
-  reviewedVerifications AlumniVerification[]
+  reviewedAlumniVerifications  AlumniVerification[]
+  reviewedStudentVerifications StudentVerification[]
+  reviewedAppeals              AccountAppeal[]
+  investigatedSuspiciousReports SuspiciousProfileReport[]
+  resolvedUserReports          UserReport[]
+  reviewedPostReports          PostReport[]
+  moderatedJobs                JobPosting[]
+  createdEvents                CampusEvent[]
+  publishedAnnouncements       Announcement[]
+  auditLogs                    AdminAuditLog[]
 
   @@index([department])
 }
 
 // -------------------------------------------------------------
-// LINKED ACCOUNTS (OAuth 2.0 / OpenID Connect)
+// LINKED ACCOUNTS (REUSED)
 // -------------------------------------------------------------
 model LinkedAccount {
   id                String          @id @default(cuid())
@@ -167,14 +442,14 @@ model LinkedAccount {
 }
 
 // -------------------------------------------------------------
-// ALUMNI VERIFICATION AUDIT WORKFLOW
+// ALUMNI VERIFICATION (REUSED)
 // -------------------------------------------------------------
 model AlumniVerification {
   id                String             @id @default(cuid())
   alumniProfileId   String
   alumniProfile     AlumniProfile      @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
   status            VerificationStatus @default(PENDING)
-  documentType      String             // e.g., DEGREE_CERTIFICATE, TRANSCRIPT, ID_CARD, LINKEDIN_OIDC
+  documentType      String
   documentUrl       String
   submissionNotes   String?            @db.Text
   reviewNotes       String?            @db.Text
@@ -190,13 +465,130 @@ model AlumniVerification {
 }
 
 // -------------------------------------------------------------
-// SKILL REPOSITORY
+// STUDENT VERIFICATION (PROPOSED)
+// -------------------------------------------------------------
+model StudentVerification {
+  id                 String                    @id @default(cuid())
+  studentProfileId   String
+  studentProfile     StudentProfile            @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  status             VerificationStatus        @default(PENDING)
+  verificationMethod StudentVerificationMethod @default(COLLEGE_ID_CARD)
+  documentUrl        String?
+  usnClaimed         String
+  submissionNotes    String?                   @db.Text
+  reviewNotes        String?                   @db.Text
+  reviewedByAdminId  String?
+  reviewedByAdmin    AdminProfile?             @relation(fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  reviewedAt         DateTime?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  @@index([studentProfileId])
+  @@index([status])
+  @@index([reviewedByAdminId])
+}
+
+// -------------------------------------------------------------
+// SUSPICIOUS PROFILE REPORT (PROPOSED)
+// -------------------------------------------------------------
+model SuspiciousProfileReport {
+  id                    String                 @id @default(cuid())
+  userId                String
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  suspicionScore        Int                    @default(0)
+  anomalyFlags          String
+  evidenceMetadata      String?                @db.Text
+  status                SuspiciousReportStatus @default(FLAGGED)
+  investigatedByAdminId String?
+  investigatedByAdmin   AdminProfile?          @relation(fields: [investigatedByAdminId], references: [id], onDelete: SetNull)
+  investigationNotes    String?                @db.Text
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([investigatedByAdminId])
+}
+
+// -------------------------------------------------------------
+// USER REPORT (PROPOSED)
+// -------------------------------------------------------------
+model UserReport {
+  id                 String             @id @default(cuid())
+  reporterId         String
+  reporter           User               @relation("ReportedByUser", fields: [reporterId], references: [id], onDelete: Cascade)
+  reportedUserId     String
+  reportedUser       User               @relation("ReportedTargetUser", fields: [reportedUserId], references: [id], onDelete: Cascade)
+  category           UserReportCategory
+  description        String             @db.Text
+  evidenceUrl        String?
+  status             UserReportStatus   @default(PENDING)
+  resolvedByAdminId  String?
+  resolvedByAdmin    AdminProfile?      @relation(fields: [resolvedByAdminId], references: [id], onDelete: SetNull)
+  resolutionNotes    String?            @db.Text
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@index([reporterId])
+  @@index([reportedUserId])
+  @@index([status])
+  @@index([category])
+}
+
+// -------------------------------------------------------------
+// ACCOUNT APPEAL (PROPOSED)
+// -------------------------------------------------------------
+model AccountAppeal {
+  id                 String        @id @default(cuid())
+  userId             String
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  actionAppealed     AppealAction
+  appealStatement    String        @db.Text
+  supplementalDocUrl String?
+  status             AppealStatus  @default(PENDING)
+  reviewedByAdminId  String?
+  reviewedByAdmin    AdminProfile? @relation(fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  resolutionVerdict  String?       @db.Text
+  reviewedAt         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([actionAppealed])
+}
+
+// -------------------------------------------------------------
+// ADMIN AUDIT LOG (PROPOSED)
+// -------------------------------------------------------------
+model AdminAuditLog {
+  id            String          @id @default(cuid())
+  adminId       String
+  admin         AdminProfile    @relation(fields: [adminId], references: [id], onDelete: Restrict)
+  action        AdminActionType
+  targetType    String
+  targetId      String
+  reason        String          @db.Text
+  previousState String?         @db.Text
+  newState      String?         @db.Text
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime        @default(now())
+
+  @@index([adminId])
+  @@index([action])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+// -------------------------------------------------------------
+// SKILL & USER SKILL (REUSED)
 // -------------------------------------------------------------
 model Skill {
   id         String      @id @default(cuid())
   name       String      @unique
   slug       String      @unique
-  category   String      // e.g., Software Engineering, Data & AI, Cloud & DevOps, Management
+  category   String
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
@@ -205,9 +597,6 @@ model Skill {
   @@index([category])
 }
 
-// -------------------------------------------------------------
-// USER SKILL (Associative Table)
-// -------------------------------------------------------------
 model UserSkill {
   id                String     @id @default(cuid())
   userId            String
@@ -221,4 +610,390 @@ model UserSkill {
   @@unique([userId, skillId])
   @@index([userId])
   @@index([skillId])
+}
+
+// -------------------------------------------------------------
+// MENTORSHIP SUBSYSTEM (PROPOSED)
+// -------------------------------------------------------------
+model MentorshipRequest {
+  id                 String             @id @default(cuid())
+  studentId          String
+  student            StudentProfile     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  alumniId           String
+  alumni             AlumniProfile      @relation(fields: [alumniId], references: [id], onDelete: Cascade)
+  topic              String
+  reason             String             @db.Text
+  status             MentorshipStatus   @default(PENDING)
+  alumniResponseNote String?            @db.Text
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  session            MentorshipSession?
+
+  @@index([studentId])
+  @@index([alumniId])
+  @@index([status])
+}
+
+model MentorshipSession {
+  id              String            @id @default(cuid())
+  requestId       String            @unique
+  request         MentorshipRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  scheduledAt     DateTime
+  durationMinutes Int               @default(45)
+  meetingType     MeetingType       @default(GOOGLE_MEET)
+  meetingUrl      String?
+  status          SessionStatus     @default(SCHEDULED)
+  studentNotes    String?           @db.Text
+  alumniNotes     String?           @db.Text
+  studentFeedback String?           @db.Text
+  alumniFeedback  String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([scheduledAt])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// MESSAGING SUBSYSTEM (PROPOSED)
+// -------------------------------------------------------------
+model MessageRequest {
+  id           String               @id @default(cuid())
+  senderId     String
+  sender       User                 @relation("SentMessageRequests", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId   String
+  receiver     User                 @relation("ReceivedMessageRequests", fields: [receiverId], references: [id], onDelete: Cascade)
+  introduction String               @db.Text
+  status       MessageRequestStatus @default(PENDING)
+  respondedAt  DateTime?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([senderId, receiverId])
+  @@index([senderId])
+  @@index([receiverId])
+  @@index([status])
+}
+
+model Conversation {
+  id            String                    @id @default(cuid())
+  type          ConversationType          @default(DIRECT_MENTORSHIP)
+  lastMessageAt DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  participants  ConversationParticipant[]
+  messages      DirectMessage[]
+
+  @@index([lastMessageAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt     DateTime?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+}
+
+model DirectMessage {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String
+  sender         User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  content        String       @db.Text
+  attachmentUrl  String?
+  isRead         Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model UserBlock {
+  id            String   @id @default(cuid())
+  blockerId     String
+  blocker       User     @relation("BlockerUsers", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedUserId String
+  blockedUser   User     @relation("BlockedUsers", fields: [blockedUserId], references: [id], onDelete: Cascade)
+  reason        String?
+  createdAt     DateTime @default(now())
+
+  @@unique([blockerId, blockedUserId])
+  @@index([blockerId])
+  @@index([blockedUserId])
+}
+
+// -------------------------------------------------------------
+// JOBS & INTERNSHIPS HUB (PROPOSED)
+// -------------------------------------------------------------
+model JobPosting {
+  id                    String           @id @default(cuid())
+  creatorId             String
+  creator               User             @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  title                 String
+  companyName           String
+  companyWebsite        String?
+  companyLogoUrl        String?
+  opportunityType       OpportunityType  @default(FULL_TIME)
+  workplaceType         WorkplaceType    @default(ON_SITE)
+  location              String
+  departmentEligibility String?
+  minCgpa               Float?
+  experienceRequired    String?
+  description           String           @db.Text
+  requirements          String?          @db.Text
+  applicationDeadline   DateTime?
+  status                JobPostingStatus @default(ACTIVE)
+  moderatedByAdminId    String?
+  moderatedByAdmin      AdminProfile?    @relation(fields: [moderatedByAdminId], references: [id], onDelete: SetNull)
+  moderationNotes       String?          @db.Text
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  applications          JobApplication[]
+  savedByUsers          SavedJob[]
+
+  @@index([creatorId])
+  @@index([companyName])
+  @@index([opportunityType])
+  @@index([workplaceType])
+  @@index([status])
+  @@index([applicationDeadline])
+}
+
+model JobApplication {
+  id            String                        @id @default(cuid())
+  jobId         String
+  job           JobPosting                    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  studentId     String
+  student       StudentProfile                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  resumeUrl     String
+  coverNote     String?                       @db.Text
+  status        JobApplicationStatus          @default(APPLIED)
+  feedback      String?                       @db.Text
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
+
+  statusHistory JobApplicationStatusHistory[]
+
+  @@unique([jobId, studentId])
+  @@index([jobId])
+  @@index([studentId])
+  @@index([status])
+}
+
+model JobApplicationStatusHistory {
+  id              String               @id @default(cuid())
+  applicationId   String
+  application     JobApplication       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  previousStatus  JobApplicationStatus
+  newStatus       JobApplicationStatus
+  changedByUserId String
+  changedByUser   User                 @relation(fields: [changedByUserId], references: [id], onDelete: Cascade)
+  notes           String?              @db.Text
+  createdAt       DateTime             @default(now())
+
+  @@index([applicationId])
+  @@index([createdAt])
+}
+
+model SavedJob {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobId     String
+  job       JobPosting @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, jobId])
+  @@index([userId])
+  @@index([jobId])
+}
+
+// -------------------------------------------------------------
+// CAMPUS EVENTS & ALUMNI MEETS (PROPOSED)
+// -------------------------------------------------------------
+model CampusEvent {
+  id               String              @id @default(cuid())
+  authorAdminId    String
+  authorAdmin      AdminProfile        @relation(fields: [authorAdminId], references: [id], onDelete: Restrict)
+  title            String
+  category         EventCategory
+  description      String              @db.Text
+  bannerUrl        String?
+  startTime        DateTime
+  endTime          DateTime
+  venue            String
+  isVirtual        Boolean             @default(false)
+  meetingLink      String?
+  maxCapacity      Int?
+  targetAudience   EventAudience       @default(ALL)
+  targetDepartment String?
+  status           EventStatus         @default(SCHEDULED)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  registrations    EventRegistration[]
+
+  @@index([authorAdminId])
+  @@index([category])
+  @@index([startTime])
+  @@index([status])
+}
+
+model EventRegistration {
+  id               String           @id @default(cuid())
+  eventId          String
+  event            CampusEvent      @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attendanceStatus AttendanceStatus @default(REGISTERED)
+  attendedAt       DateTime?
+  feedbackRating   Int?
+  feedbackComment  String?          @db.Text
+  registeredAt     DateTime         @default(now())
+
+  @@unique([eventId, userId])
+  @@index([eventId])
+  @@index([userId])
+  @@index([attendanceStatus])
+}
+
+// -------------------------------------------------------------
+// COLLEGE ANNOUNCEMENTS (PROPOSED)
+// -------------------------------------------------------------
+model Announcement {
+  id               String               @id @default(cuid())
+  authorAdminId    String
+  authorAdmin      AdminProfile         @relation(fields: [authorAdminId], references: [id], onDelete: Restrict)
+  title            String
+  category         AnnouncementCategory
+  content          String               @db.Text
+  targetAudience   AnnouncementAudience @default(ALL)
+  targetDepartment String?
+  targetBatchYear  Int?
+  priority         AnnouncementPriority @default(NORMAL)
+  attachmentUrl    String?
+  publishedAt      DateTime             @default(now())
+  expiresAt        DateTime?
+  status           AnnouncementStatus   @default(PUBLISHED)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+
+  @@index([authorAdminId])
+  @@index([category])
+  @@index([targetAudience])
+  @@index([priority])
+  @@index([status])
+  @@index([publishedAt])
+}
+
+// -------------------------------------------------------------
+// COMMUNITY FORUMS (PROPOSED)
+// -------------------------------------------------------------
+model DiscussionPost {
+  id           String              @id @default(cuid())
+  authorId     String
+  author       User                @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  channel      ForumChannel        @default(GENERAL)
+  title        String
+  content      String              @db.Text
+  upvoteCount  Int                 @default(0)
+  commentCount Int                 @default(0)
+  isPinned     Boolean             @default(false)
+  isLocked     Boolean             @default(false)
+  status       PostStatus          @default(ACTIVE)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  comments     DiscussionComment[]
+  likes        PostLike[]
+  reports      PostReport[]
+
+  @@index([authorId])
+  @@index([channel])
+  @@index([upvoteCount])
+  @@index([status])
+}
+
+model DiscussionComment {
+  id        String         @id @default(cuid())
+  postId    String
+  post      DiscussionPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  content   String         @db.Text
+  status    PostStatus     @default(ACTIVE)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([status])
+}
+
+model PostLike {
+  id        String         @id @default(cuid())
+  postId    String
+  post      DiscussionPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model PostReport {
+  id                String         @id @default(cuid())
+  postId            String
+  post              DiscussionPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporterId        String
+  reporter          User           @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  reason            ReportReason
+  notes             String?        @db.Text
+  status            ReportStatus   @default(PENDING)
+  reviewedByAdminId String?
+  reviewedByAdmin   AdminProfile?  @relation(fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  createdAt         DateTime       @default(now())
+
+  @@index([postId])
+  @@index([reporterId])
+  @@index([reason])
+  @@index([status])
+}
+
+// -------------------------------------------------------------
+// NOTIFICATIONS (PROPOSED)
+// -------------------------------------------------------------
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       NotificationType
+  title      String
+  message    String           @db.Text
+  entityType String?
+  entityId   String?
+  actionUrl  String?
+  isRead     Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
 }

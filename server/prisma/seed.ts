@@ -1,4 +1,15 @@
-import { PrismaClient, UserRole, VerificationStatus, SkillLevel } from '@prisma/client';
+import {
+  PrismaClient,
+  UserRole,
+  VerificationStatus,
+  SkillLevel,
+  AccountStatus,
+  AnnouncementCategory,
+  AnnouncementAudience,
+  AnnouncementPriority,
+  AnnouncementStatus,
+  MentorshipStatus,
+} from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -38,11 +49,13 @@ async function main() {
   const adminEmail = 'admin@alumniconnect.edu';
   const adminUser = await prisma.user.upsert({
     where: { email: adminEmail },
-    update: { role: UserRole.ADMIN, isEmailVerified: true },
+    update: { role: UserRole.ADMIN, status: AccountStatus.VERIFIED, isEmailVerified: true, fullName: 'Dr. Evelyn Vance' },
     create: {
       email: adminEmail,
+      fullName: 'Dr. Evelyn Vance',
       passwordHash,
       role: UserRole.ADMIN,
+      status: AccountStatus.VERIFIED,
       isEmailVerified: true,
       avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
       adminProfile: {
@@ -62,11 +75,13 @@ async function main() {
   const alumniEmail = 'sarah.chen@alumni.edu';
   const alumniUser = await prisma.user.upsert({
     where: { email: alumniEmail },
-    update: { role: UserRole.ALUMNI, isEmailVerified: true },
+    update: { role: UserRole.ALUMNI, status: AccountStatus.VERIFIED, isEmailVerified: true, fullName: 'Sarah Chen' },
     create: {
       email: alumniEmail,
+      fullName: 'Sarah Chen',
       passwordHash,
       role: UserRole.ALUMNI,
+      status: AccountStatus.VERIFIED,
       isEmailVerified: true,
       avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?w=150&auto=format&fit=crop&q=80',
       alumniProfile: {
@@ -118,11 +133,13 @@ async function main() {
   const studentEmail = 'alex.rivera@student.edu';
   const studentUser = await prisma.user.upsert({
     where: { email: studentEmail },
-    update: { role: UserRole.STUDENT, isEmailVerified: true },
+    update: { role: UserRole.STUDENT, status: AccountStatus.VERIFIED, isEmailVerified: true, fullName: 'Alex Rivera' },
     create: {
       email: studentEmail,
+      fullName: 'Alex Rivera',
       passwordHash,
       role: UserRole.STUDENT,
+      status: AccountStatus.VERIFIED,
       isEmailVerified: true,
       avatarUrl: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&auto=format&fit=crop&q=80',
       studentProfile: {
@@ -138,6 +155,7 @@ async function main() {
           githubUrl: 'https://github.com/alexrivera-demo',
           linkedinUrl: 'https://linkedin.com/in/alexrivera-demo',
           portfolioUrl: 'https://alexrivera.dev',
+          isVerified: true,
         },
       },
     },
@@ -167,6 +185,71 @@ async function main() {
     }
   }
   console.log(`✅ Seeded Student: ${studentUser.email} with skills.`);
+
+  // 5. Seed Official Institutional Announcements (Published by Admin)
+  if (adminUser.adminProfile) {
+    const existingAnnouncements = await prisma.announcement.count();
+    if (existingAnnouncements === 0) {
+      await prisma.announcement.createMany({
+        data: [
+          {
+            authorAdminId: adminUser.adminProfile.id,
+            title: 'Campus Placement & 2026 Internship Drive Commencing',
+            category: AnnouncementCategory.PLACEMENT_UPDATE,
+            content:
+              'The Career Development Centre (CDC) announces that Tier-1 technology recruitment drives for summer 2026 internships and graduate roles will begin next month. Ensure your profile resume and verified skills are up to date.',
+            targetAudience: AnnouncementAudience.STUDENTS_ONLY,
+            priority: AnnouncementPriority.HIGH,
+            status: AnnouncementStatus.PUBLISHED,
+          },
+          {
+            authorAdminId: adminUser.adminProfile.id,
+            title: 'Annual Alumni-Student Technology Mentorship Symposium',
+            category: AnnouncementCategory.ALUMNI_MEET_NOTICE,
+            content:
+              'Join distinguished alumni leadership from Google, Stripe, Meta and McKinsey for virtual 1-on-1 breakout mentoring tracks, mock technical interviews, and resume review workshops.',
+            targetAudience: AnnouncementAudience.ALL,
+            priority: AnnouncementPriority.NORMAL,
+            status: AnnouncementStatus.PUBLISHED,
+          },
+        ],
+      });
+      console.log('✅ Seeded 2 official campus announcements.');
+    }
+  }
+
+  // 6. Seed Sample Accepted Mentorship for Alex Rivera with Sarah Chen
+  if (studentUser.studentProfile && alumniUser.alumniProfile) {
+    const existingReq = await prisma.mentorshipRequest.findFirst({
+      where: {
+        studentId: studentUser.studentProfile.id,
+        alumniId: alumniUser.alumniProfile.id,
+      },
+    });
+
+    if (!existingReq) {
+      await prisma.mentorshipRequest.create({
+        data: {
+          studentId: studentUser.studentProfile.id,
+          alumniId: alumniUser.alumniProfile.id,
+          topic: 'System Design & Big Tech Technical Interviewing',
+          reason:
+            'Seeking guidance on large-scale distributed systems architecture and preparation tips for Google Summer SWE internship interviews.',
+          status: MentorshipStatus.ACCEPTED,
+          alumniResponseNote:
+            'Delighted to connect! Lets do a 45-minute mock design session focused on distributed caching and load balancers.',
+          session: {
+            create: {
+              scheduledAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // Tomorrow
+              durationMinutes: 45,
+              meetingUrl: 'https://meet.google.com/alm-tech-mock',
+            },
+          },
+        },
+      });
+      console.log('✅ Seeded sample mentorship session for demo student.');
+    }
+  }
 
   console.log('✨ Database seed completed successfully!');
 }
