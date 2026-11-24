@@ -7,6 +7,7 @@ import { healthRoutes } from './routes/health.routes';
 import { authRoutes } from './routes/auth.routes';
 import { studentRoutes } from './routes/student.routes';
 import { alumniRoutes } from './routes/alumni.routes';
+import { adminRoutes } from './routes/admin.routes';
 import { linkedinRoutes } from './routes/linkedin.routes';
 import { errorHandler } from './middleware/errorHandler';
 import { notFound } from './middleware/notFound';
@@ -40,6 +41,7 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/student', studentRoutes);
 app.use('/api/alumni', alumniRoutes);
+app.use('/api/admin', adminRoutes);
 app.use('/api/linkedin', linkedinRoutes);
 
 // Root greeting / status

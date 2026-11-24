@@ -827,4 +827,483 @@ export const api = {
     }
     return json.data.announcements;
   },
+
+  // -----------------------------------------------------------
+  // ADMIN / CDC APIs
+  // -----------------------------------------------------------
+  async getAdminDashboardSummary(): Promise<AdminDashboardSummaryData> {
+    const res = await fetch(`${API_BASE}/admin/dashboard/summary`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch admin dashboard summary');
+    }
+    return json.data;
+  },
+
+  async getAdminStudents(params?: {
+    search?: string;
+    status?: string;
+    department?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ students: AdminStudentItem[]; pagination: any }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.status) query.append('status', params.status);
+    if (params?.department) query.append('department', params.department);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const res = await fetch(`${API_BASE}/admin/students?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch students list');
+    }
+    return json.data;
+  },
+
+  async getAdminStudentById(id: string): Promise<AdminStudentItem> {
+    const res = await fetch(`${API_BASE}/admin/students/${id}`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch student details');
+    }
+    return json.data.student;
+  },
+
+  async reviewAdminStudentVerification(
+    id: string,
+    payload: { decision: 'APPROVE' | 'REJECT'; reason?: string }
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/students/${id}/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to review student verification');
+    }
+    return json.data;
+  },
+
+  async getAdminAlumni(params?: {
+    search?: string;
+    status?: string;
+    department?: string;
+    company?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ alumni: AdminAlumniItem[]; pagination: any }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.status) query.append('status', params.status);
+    if (params?.department) query.append('department', params.department);
+    if (params?.company) query.append('company', params.company);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const res = await fetch(`${API_BASE}/admin/alumni?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch alumni list');
+    }
+    return json.data;
+  },
+
+  async getAdminAlumniById(id: string): Promise<AdminAlumniItem> {
+    const res = await fetch(`${API_BASE}/admin/alumni/${id}`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch alumni details');
+    }
+    return json.data.alumni;
+  },
+
+  async reviewAdminAlumniVerification(
+    id: string,
+    payload: { decision: 'APPROVE' | 'REJECT'; reason?: string }
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/alumni/${id}/verify`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to review alumni verification');
+    }
+    return json.data;
+  },
+
+  async suspendUser(userId: string, reason: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/users/${userId}/suspend`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to suspend account');
+    }
+    return json.data;
+  },
+
+  async reinstateUser(userId: string, reason: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/users/${userId}/reinstate`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ reason }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to reinstate account');
+    }
+    return json.data;
+  },
+
+  async getAdminAppeals(params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ appeals: AdminAppealItem[]; pagination: any }> {
+    const query = new URLSearchParams();
+    if (params?.status) query.append('status', params.status);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const res = await fetch(`${API_BASE}/admin/appeals?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch appeals');
+    }
+    return json.data;
+  },
+
+  async resolveAdminAppeal(
+    appealId: string,
+    payload: { decision: 'APPROVE' | 'REJECT'; resolutionVerdict: string }
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE}/admin/appeals/${appealId}/resolve`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to resolve appeal');
+    }
+    return json.data;
+  },
+
+  async getAdminAnnouncements(): Promise<AdminAnnouncementItem[]> {
+    const res = await fetch(`${API_BASE}/admin/announcements`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch announcements');
+    }
+    return json.data.announcements;
+  },
+
+  async createAdminAnnouncement(payload: {
+    title: string;
+    category: string;
+    content: string;
+    targetAudience: string;
+    targetDepartment?: string | null;
+    targetBatchYear?: number | null;
+    priority?: string;
+    status?: string;
+    attachmentUrl?: string | null;
+  }): Promise<AdminAnnouncementItem> {
+    const res = await fetch(`${API_BASE}/admin/announcements`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to create announcement');
+    }
+    return json.data.announcement;
+  },
+
+  async updateAdminAnnouncement(
+    id: string,
+    payload: Partial<{
+      title: string;
+      category: string;
+      content: string;
+      targetAudience: string;
+      targetDepartment?: string | null;
+      targetBatchYear?: number | null;
+      priority?: string;
+      status?: string;
+      attachmentUrl?: string | null;
+    }>
+  ): Promise<AdminAnnouncementItem> {
+    const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to update announcement');
+    }
+    return json.data.announcement;
+  },
+
+  async toggleAdminAnnouncementStatus(
+    id: string,
+    status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED'
+  ): Promise<AdminAnnouncementItem> {
+    const res = await fetch(`${API_BASE}/admin/announcements/${id}/status`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to update announcement status');
+    }
+    return json.data.announcement;
+  },
+
+  async deleteAdminAnnouncement(id: string): Promise<void> {
+    const res = await fetch(`${API_BASE}/admin/announcements/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to delete announcement');
+    }
+  },
+
+  async getAdminAuditLogs(params?: {
+    search?: string;
+    action?: string;
+    targetType?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ logs: AdminAuditLogItem[]; pagination: any }> {
+    const query = new URLSearchParams();
+    if (params?.search) query.append('search', params.search);
+    if (params?.action) query.append('action', params.action);
+    if (params?.targetType) query.append('targetType', params.targetType);
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.limit) query.append('limit', params.limit.toString());
+
+    const res = await fetch(`${API_BASE}/admin/audit-logs?${query.toString()}`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch audit logs');
+    }
+    return json.data;
+  },
 };
+
+// -------------------------------------------------------------
+// ADMIN INTERFACES
+// -------------------------------------------------------------
+export interface AdminDashboardSummaryData {
+  admin: {
+    name: string;
+    email: string;
+    employeeId: string;
+    department: string;
+    designation: string;
+  };
+  metrics: {
+    totalStudents: number;
+    totalAlumni: number;
+    pendingStudents: number;
+    pendingAlumni: number;
+    totalPendingVerifications: number;
+    verifiedUsers: number;
+    rejectedUsers: number;
+    suspendedUsers: number;
+    pendingAppeals: number;
+    totalAnnouncements: number;
+  };
+  departmentDistribution: Array<{
+    department: string;
+    studentCount: number;
+  }>;
+  recentAuditLogs: Array<{
+    id: string;
+    action: string;
+    targetType: string;
+    targetId: string;
+    reason: string;
+    performedBy: string;
+    createdAt: string;
+  }>;
+}
+
+export interface AdminStudentItem {
+  id: string;
+  email: string;
+  fullName: string;
+  phoneNumber?: string | null;
+  status: string;
+  isActive: boolean;
+  avatarUrl?: string | null;
+  createdAt: string;
+  studentProfile?: {
+    id: string;
+    rollNumber: string;
+    department: string;
+    degree: string;
+    currentSemester?: number | null;
+    expectedGraduationYear: number;
+    cgpa?: number | null;
+    bio?: string | null;
+    headline?: string | null;
+    linkedinUrl?: string | null;
+    githubUrl?: string | null;
+    portfolioUrl?: string | null;
+    resumeUrl?: string | null;
+    isVerified: boolean;
+    verifications?: any[];
+  } | null;
+  accountAppeals?: any[];
+}
+
+export interface AdminAlumniItem {
+  id: string;
+  email: string;
+  fullName: string;
+  phoneNumber?: string | null;
+  status: string;
+  isActive: boolean;
+  avatarUrl?: string | null;
+  createdAt: string;
+  alumniProfile?: {
+    id: string;
+    rollNumber?: string | null;
+    collegeName?: string | null;
+    currentCompany?: string | null;
+    currentDesignation?: string | null;
+    industry?: string | null;
+    yearsOfExperience?: number;
+    city?: string | null;
+    country?: string | null;
+    bio?: string | null;
+    linkedinUrl?: string | null;
+    isWillingToMentor?: boolean;
+    maxMentees?: number;
+    mentorshipTopics?: string | null;
+    graduationYear: number;
+    degree: string;
+    department: string;
+    isVerified: boolean;
+    verifications?: any[];
+  } | null;
+  accountAppeals?: any[];
+}
+
+export interface AdminAnnouncementItem {
+  id: string;
+  authorAdminId: string;
+  title: string;
+  category: string;
+  content: string;
+  targetAudience: string;
+  targetDepartment?: string | null;
+  targetBatchYear?: number | null;
+  priority: string;
+  attachmentUrl?: string | null;
+  publishedAt: string;
+  expiresAt?: string | null;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+  authorAdmin?: {
+    employeeId: string;
+    department: string;
+    designation: string;
+    user: {
+      fullName: string;
+      email: string;
+    };
+  };
+}
+
+export interface AdminAppealItem {
+  id: string;
+  userId: string;
+  actionAppealed: string;
+  appealStatement: string;
+  supplementalDocUrl?: string | null;
+  status: string;
+  resolutionVerdict?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    fullName: string;
+    email: string;
+    role: string;
+    status: string;
+    phoneNumber?: string | null;
+  };
+  reviewedByAdmin?: {
+    employeeId: string;
+    user: { fullName: string; email: string };
+  } | null;
+}
+
+export interface AdminAuditLogItem {
+  id: string;
+  action: string;
+  targetType: string;
+  targetId: string;
+  reason: string;
+  previousState?: string | null;
+  newState?: string | null;
+  ipAddress?: string | null;
+  userAgent?: string | null;
+  createdAt: string;
+  admin: {
+    id: string;
+    employeeId: string;
+    name: string | null;
+    email: string;
+    department: string;
+  };
+}
