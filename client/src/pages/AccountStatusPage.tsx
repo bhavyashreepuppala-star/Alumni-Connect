@@ -18,16 +18,23 @@ import {
   Edit3,
   Check,
   AlertCircle,
+  Building2,
+  Briefcase,
+  MapPin,
   ExternalLink,
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/Card';
-import { api, VerificationStatusData } from '../lib/api';
+import { api } from '../lib/api';
+import { getStoredUser, clearSession } from '../lib/auth';
 
 export const AccountStatusPage: React.FC = () => {
   const navigate = useNavigate();
-  const [data, setData] = useState<VerificationStatusData | null>(null);
+  const storedUser = getStoredUser();
+  const isAlumni = storedUser?.role === 'ALUMNI';
+
+  const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -39,6 +46,12 @@ export const AccountStatusPage: React.FC = () => {
   const [editGithubUrl, setEditGithubUrl] = useState('');
   const [editLinkedinUrl, setEditLinkedinUrl] = useState('');
   const [editPortfolioUrl, setEditPortfolioUrl] = useState('');
+  const [editCompany, setEditCompany] = useState('');
+  const [editDesignation, setEditDesignation] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [editCountry, setEditCountry] = useState('');
+  const [editMentorshipTopics, setEditMentorshipTopics] = useState('');
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
   const [saveErrorMsg, setSaveErrorMsg] = useState('');
@@ -53,16 +66,25 @@ export const AccountStatusPage: React.FC = () => {
   const fetchStatus = async () => {
     try {
       setIsLoading(true);
-      const res = await api.getStudentVerificationStatus();
-      setData(res);
+      let res: any;
+      if (isAlumni) {
+        res = await api.getAlumniVerificationStatus();
+        setEditCompany(res.currentCompany || '');
+        setEditDesignation(res.currentDesignation || '');
+        setEditCity(res.city || '');
+        setEditCountry(res.country || '');
+        setEditMentorshipTopics(res.mentorshipTopics || '');
+      } else {
+        res = await api.getStudentVerificationStatus();
+        setEditHeadline(res.headline || '');
+        setEditGithubUrl(res.githubUrl || '');
+        setEditPortfolioUrl('');
+      }
 
-      // Prepopulate edit fields
+      setData(res);
       setEditPhoneNumber(res.phoneNumber || '');
-      setEditHeadline(res.headline || '');
       setEditBio(res.bio || '');
-      setEditGithubUrl(res.githubUrl || '');
       setEditLinkedinUrl(res.linkedinUrl || '');
-      setEditPortfolioUrl('');
     } catch (err: any) {
       console.error('Failed to fetch verification status:', err);
       setErrorMessage(err.message || 'Unable to load account verification record.');
@@ -80,7 +102,7 @@ export const AccountStatusPage: React.FC = () => {
   }, [navigate]);
 
   const handleLogout = () => {
-    api.logout();
+    clearSession();
     navigate('/login');
   };
 
@@ -91,18 +113,30 @@ export const AccountStatusPage: React.FC = () => {
     setSaveErrorMsg('');
 
     try {
-      await api.updateStudentProfile({
-        phoneNumber: editPhoneNumber.trim() || undefined,
-        headline: editHeadline.trim() || undefined,
-        bio: editBio.trim() || undefined,
-        githubUrl: editGithubUrl.trim() || undefined,
-        linkedinUrl: editLinkedinUrl.trim() || undefined,
-        portfolioUrl: editPortfolioUrl.trim() || undefined,
-      });
+      if (isAlumni) {
+        await api.updateAlumniProfile({
+          phoneNumber: editPhoneNumber.trim() || undefined,
+          currentCompany: editCompany.trim() || undefined,
+          currentDesignation: editDesignation.trim() || undefined,
+          city: editCity.trim() || undefined,
+          country: editCountry.trim() || undefined,
+          bio: editBio.trim() || undefined,
+          linkedinUrl: editLinkedinUrl.trim() || undefined,
+          mentorshipTopics: editMentorshipTopics.trim() || undefined,
+        });
+      } else {
+        await api.updateStudentProfile({
+          phoneNumber: editPhoneNumber.trim() || undefined,
+          headline: editHeadline.trim() || undefined,
+          bio: editBio.trim() || undefined,
+          githubUrl: editGithubUrl.trim() || undefined,
+          linkedinUrl: editLinkedinUrl.trim() || undefined,
+          portfolioUrl: editPortfolioUrl.trim() || undefined,
+        });
+      }
 
       setSaveSuccessMsg('Profile details successfully updated in institutional database.');
       setIsEditing(false);
-      // Refresh status data
       await fetchStatus();
     } catch (err: any) {
       setSaveErrorMsg(err.message || 'Failed to update details.');
@@ -123,10 +157,11 @@ export const AccountStatusPage: React.FC = () => {
     setAppealErrorMsg('');
 
     try {
-      await api.submitVerificationAppeal(
-        appealStatement.trim(),
-        appealDocUrl.trim() || undefined
-      );
+      if (isAlumni) {
+        await api.submitAlumniVerificationAppeal(appealStatement.trim(), appealDocUrl.trim() || undefined);
+      } else {
+        await api.submitVerificationAppeal(appealStatement.trim(), appealDocUrl.trim() || undefined);
+      }
       setAppealSuccessMsg('Your appeal has been submitted to the administration review board.');
       setAppealStatement('');
       setAppealDocUrl('');
@@ -169,13 +204,14 @@ export const AccountStatusPage: React.FC = () => {
     );
   }
 
-  const { accountStatus, rollNumber, department, degree, expectedGraduationYear, currentSemester } = data;
+  const { accountStatus, rollNumber, department, degree, expectedGraduationYear, graduationYear } = data;
+  const batchYear = graduationYear || expectedGraduationYear;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Institutional Top Navbar */}
       <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
               <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy-900 text-white">
@@ -185,13 +221,13 @@ export const AccountStatusPage: React.FC = () => {
             </Link>
             <span className="text-slate-300">/</span>
             <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
-              Institutional Status Portal
+              {isAlumni ? 'Alumni Credential Portal' : 'Student Credential Portal'}
             </span>
           </div>
 
           <div className="flex items-center gap-3">
             <span className="text-xs text-slate-500 hidden sm:inline">
-              Signed in as: <strong className="text-navy-950">{data.email}</strong>
+              Signed in: <strong className="text-navy-950">{data.email}</strong>
             </span>
             <Button
               variant="outline"
@@ -225,9 +261,19 @@ export const AccountStatusPage: React.FC = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-slate-700 leading-relaxed">
-                  Your student registration has been safely recorded in the college database. Before unrestricted
-                  access to alumni directories, 1-on-1 mentorship, and campus networking is granted, your college affiliation
-                  and USN must be verified by the College Administration / Career Development Center.
+                  {isAlumni ? (
+                    <>
+                      Your alumni registration has been safely recorded in the college database. Before unrestricted access to the
+                      Alumni Mentorship Hub, student requests, and campus networking is granted, your graduation records and degree
+                      credentials must be verified by the Alumni Relations Office / Career Development Center.
+                    </>
+                  ) : (
+                    <>
+                      Your student registration has been safely recorded in the college database. Before unrestricted access to alumni
+                      directories, 1-on-1 mentorship, and campus networking is granted, your college affiliation and USN must be verified
+                      by the College Administration / Career Development Center.
+                    </>
+                  )}
                 </p>
                 <div className="mt-3 flex items-center gap-2 text-xs font-medium text-amber-800">
                   <ShieldCheck className="h-4 w-4 text-amber-600" />
@@ -255,13 +301,13 @@ export const AccountStatusPage: React.FC = () => {
                     </span>
                   </div>
                   <p className="mt-1 text-sm text-slate-700">
-                    Your student credentials have been confirmed. You hold full access to all student networking features.
+                    Your institutional credentials have been confirmed. You hold full access to all certified networking features.
                   </p>
                 </div>
               </div>
-              <Link to="/dashboard/student">
+              <Link to={isAlumni ? '/dashboard/alumni' : '/dashboard/student'}>
                 <Button variant="navy" className="gap-2 shrink-0">
-                  <span>Enter Student Dashboard</span>
+                  <span>{isAlumni ? 'Enter Alumni Mentorship Hub' : 'Enter Student Dashboard'}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -285,7 +331,7 @@ export const AccountStatusPage: React.FC = () => {
                   </span>
                 </div>
                 <p className="mt-2 text-sm text-slate-700">
-                  The institutional verification team was unable to confirm your student records against the college registry.
+                  The institutional verification team was unable to confirm your academic records against university convocation archives.
                 </p>
                 {data.verification?.publicReviewReason && (
                   <div className="mt-3 rounded-lg bg-white p-3.5 border border-red-200 text-xs text-red-900">
@@ -294,7 +340,7 @@ export const AccountStatusPage: React.FC = () => {
                   </div>
                 )}
                 <p className="mt-3 text-xs text-slate-600">
-                  If this was in error, you may submit an appeal below along with your university registration proof or visit the Registrar office.
+                  If this was in error, you may submit an appeal below along with your university registration proof.
                 </p>
               </div>
             </div>
@@ -310,7 +356,7 @@ export const AccountStatusPage: React.FC = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl sm:text-2xl font-bold text-navy-950">
-                    Student Account Suspended
+                    Account Access Suspended
                   </h1>
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-200 text-rose-900 border border-rose-300">
                     SUSPENDED
@@ -318,11 +364,11 @@ export const AccountStatusPage: React.FC = () => {
                 </div>
                 <p className="mt-2 text-sm text-slate-800">
                   This account has been temporarily restricted by college administration pursuant to institutional policy.
-                  Access to networking, messaging, and alumni directories is disabled.
+                  Access to networking, messaging, and mentorship sessions is disabled.
                 </p>
                 <div className="mt-4 p-3 rounded-lg bg-white border border-rose-200 text-xs text-slate-700 space-y-1">
                   <p className="font-semibold text-rose-900">Required Action:</p>
-                  <p>Please contact the Career Development Center or Dean of Student Affairs in person with your campus ID card.</p>
+                  <p>Please contact the Career Development Center or Alumni Relations Office in person or via institutional email.</p>
                 </div>
               </div>
             </div>
@@ -333,7 +379,7 @@ export const AccountStatusPage: React.FC = () => {
         <Card className="shadow-sm border-slate-200">
           <CardHeader className="flex flex-row items-center justify-between pb-3">
             <div>
-              <CardTitle className="text-lg text-navy-950">Submitted Academic Profile</CardTitle>
+              <CardTitle className="text-lg text-navy-950">Submitted Institutional Profile</CardTitle>
               <CardDescription>
                 Details submitted during registration and stored in the institutional database
               </CardDescription>
@@ -378,7 +424,7 @@ export const AccountStatusPage: React.FC = () => {
 
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Institutional Email
+                  Registered Email
                 </span>
                 <span className="text-sm font-semibold text-navy-950 mt-0.5 block truncate">
                   {data.email}
@@ -387,10 +433,10 @@ export const AccountStatusPage: React.FC = () => {
 
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  USN / Roll Number
+                  USN / Registration ID
                 </span>
                 <span className="text-sm font-mono font-bold text-navy-950 mt-0.5 block">
-                  {rollNumber}
+                  {rollNumber || 'On Record'}
                 </span>
                 <span className="text-[10px] text-slate-400 mt-1 block">Locked institutional credential</span>
               </div>
@@ -415,12 +461,43 @@ export const AccountStatusPage: React.FC = () => {
 
               <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
                 <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-                  Academic Timeline
+                  Graduation Batch
                 </span>
                 <span className="text-sm font-semibold text-navy-950 mt-0.5 block">
-                  {currentSemester ? `Semester ${currentSemester}` : 'Enrolled'} • Class of {expectedGraduationYear}
+                  Class of {batchYear}
                 </span>
               </div>
+
+              {isAlumni && (
+                <>
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                      Current Company
+                    </span>
+                    <span className="text-sm font-semibold text-navy-950 mt-0.5 block">
+                      {data.currentCompany || 'Not added'}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                      Designation / Role
+                    </span>
+                    <span className="text-sm font-semibold text-navy-950 mt-0.5 block">
+                      {data.currentDesignation || 'Not added'}
+                    </span>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                      Location
+                    </span>
+                    <span className="text-sm font-semibold text-navy-950 mt-0.5 block">
+                      {[data.city, data.country].filter(Boolean).join(', ') || 'Not added'}
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Permitted Profile Edit Form (When editing) */}
@@ -438,31 +515,71 @@ export const AccountStatusPage: React.FC = () => {
                     value={editPhoneNumber}
                     onChange={(e) => setEditPhoneNumber(e.target.value)}
                   />
-                  <Input
-                    label="Headline / Focus (Optional)"
-                    placeholder="e.g. 3rd-year CS student interested in Systems & Cloud"
-                    value={editHeadline}
-                    onChange={(e) => setEditHeadline(e.target.value)}
-                  />
-                  <Input
-                    label="GitHub Profile URL (Optional)"
-                    placeholder="https://github.com/yourhandle"
-                    value={editGithubUrl}
-                    onChange={(e) => setEditGithubUrl(e.target.value)}
-                  />
+
+                  {isAlumni ? (
+                    <>
+                      <Input
+                        label="Current Company"
+                        placeholder="e.g. Google, Microsoft, Stripe"
+                        value={editCompany}
+                        onChange={(e) => setEditCompany(e.target.value)}
+                      />
+                      <Input
+                        label="Current Designation"
+                        placeholder="e.g. Staff Software Engineer"
+                        value={editDesignation}
+                        onChange={(e) => setEditDesignation(e.target.value)}
+                      />
+                      <Input
+                        label="Current City"
+                        placeholder="e.g. San Francisco / Bengaluru"
+                        value={editCity}
+                        onChange={(e) => setEditCity(e.target.value)}
+                      />
+                      <Input
+                        label="Country"
+                        placeholder="e.g. United States / India"
+                        value={editCountry}
+                        onChange={(e) => setEditCountry(e.target.value)}
+                      />
+                      <Input
+                        label="Mentorship Focus Topics"
+                        placeholder="e.g. System Design, Resume Reviews"
+                        value={editMentorshipTopics}
+                        onChange={(e) => setEditMentorshipTopics(e.target.value)}
+                      />
+                    </>
+                  ) : (
+                    <Input
+                      label="Headline / Focus (Optional)"
+                      placeholder="e.g. 3rd-year CS student interested in Systems & Cloud"
+                      value={editHeadline}
+                      onChange={(e) => setEditHeadline(e.target.value)}
+                    />
+                  )}
+
                   <Input
                     label="LinkedIn Profile URL (Optional)"
                     placeholder="https://linkedin.com/in/yourhandle"
                     value={editLinkedinUrl}
                     onChange={(e) => setEditLinkedinUrl(e.target.value)}
                   />
+
+                  {!isAlumni && (
+                    <Input
+                      label="GitHub Profile URL (Optional)"
+                      placeholder="https://github.com/yourhandle"
+                      value={editGithubUrl}
+                      onChange={(e) => setEditGithubUrl(e.target.value)}
+                    />
+                  )}
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="block text-sm font-medium text-slate-700">Bio / About You</label>
                   <textarea
                     rows={3}
-                    placeholder="Briefly describe your academic background and project interests..."
+                    placeholder="Briefly describe your background and project interests..."
                     value={editBio}
                     onChange={(e) => setEditBio(e.target.value)}
                     className="w-full rounded-lg border border-slate-300 p-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
@@ -498,8 +615,8 @@ export const AccountStatusPage: React.FC = () => {
                   <span className="font-medium text-slate-700">{data.phoneNumber || 'Not supplied'}</span>
                 </div>
                 <div>
-                  <span className="text-slate-400 block">Professional Headline:</span>
-                  <span className="font-medium text-slate-700">{data.headline || 'None added'}</span>
+                  <span className="text-slate-400 block">{isAlumni ? 'LinkedIn Profile:' : 'Professional Headline:'}</span>
+                  <span className="font-medium text-slate-700">{data.linkedinUrl || data.headline || 'None added'}</span>
                 </div>
                 {data.bio && (
                   <div className="sm:col-span-2">
@@ -513,7 +630,7 @@ export const AccountStatusPage: React.FC = () => {
 
           <CardFooter className="bg-slate-50/70 border-t border-slate-200 text-xs text-slate-500 py-3">
             <span>
-              Need to correct your institutional USN, Department, or Degree? Contact your department administration or submit proof of enrollment.
+              Need to correct your institutional degree, department, or graduation year? Contact the Alumni Relations Office or Registrar.
             </span>
           </CardFooter>
         </Card>
@@ -567,7 +684,7 @@ export const AccountStatusPage: React.FC = () => {
                     <textarea
                       rows={4}
                       required
-                      placeholder="Explain your student enrollment status, department enrollment batch, and provide any details that verify your college affiliation..."
+                      placeholder="Explain your enrollment or graduation details and provide any reference information that confirms your degree affiliation..."
                       value={appealStatement}
                       onChange={(e) => setAppealStatement(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 p-2.5 text-sm text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
@@ -575,7 +692,7 @@ export const AccountStatusPage: React.FC = () => {
                   </div>
 
                   <Input
-                    label="Link to Verification Proof / Student ID (Optional)"
+                    label="Link to Degree Proof / Transcript / Convocation Certificate (Optional)"
                     placeholder="https://drive.google.com/... or institutional document link"
                     value={appealDocUrl}
                     onChange={(e) => setAppealDocUrl(e.target.value)}
@@ -600,12 +717,12 @@ export const AccountStatusPage: React.FC = () => {
         <div className="rounded-xl border border-slate-200 bg-white p-5 text-xs text-slate-600 space-y-2">
           <h4 className="font-bold text-navy-950 text-sm flex items-center gap-1.5">
             <ShieldCheck className="h-4 w-4 text-brand-600" />
-            <span>Why is verification required?</span>
+            <span>Why is institutional verification required?</span>
           </h4>
           <p>
-            Alumni Connect is a genuine college networking platform. To protect alumni privacy, prevent spam,
-            and maintain an authentic student community, access to alumni profiles, direct messaging, and mentorship sessions
-            is restricted to verified current students.
+            Alumni Connect is a genuine college networking platform for both current students and graduated alumni.
+            To protect community privacy, prevent impersonation, and guarantee authentic career mentorship, access to
+            the full directory, messaging, and 1-on-1 sessions is strictly limited to verified institution members.
           </p>
         </div>
       </main>

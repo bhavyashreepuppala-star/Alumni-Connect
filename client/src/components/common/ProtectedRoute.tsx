@@ -38,8 +38,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/" replace />;
   }
 
-  // 3. Unverified student trying to access verified-only area
-  if (requireVerified && user.role === 'STUDENT' && user.status !== 'VERIFIED') {
+  // 3. Unverified student or alumni trying to access verified-only area
+  if (requireVerified && (user.role === 'STUDENT' || user.role === 'ALUMNI') && user.status !== 'VERIFIED') {
     return <Navigate to="/account-status" replace />;
   }
 
@@ -48,7 +48,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
 /**
  * GuestOnlyRoute — Prevents already-authenticated users from reaching login/register pages.
- * Redirects verified students to their dashboard; pending students to account-status.
+ * Redirects verified users to their dashboard; pending users to account-status.
  */
 export const GuestOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const token = getToken();
@@ -60,7 +60,11 @@ export const GuestOnlyRoute: React.FC<{ children: React.ReactNode }> = ({ childr
         ? <Navigate to="/dashboard/student" replace />
         : <Navigate to="/account-status" replace />;
     }
-    if (user.role === 'ALUMNI') return <Navigate to="/dashboard/alumni" replace />;
+    if (user.role === 'ALUMNI') {
+      return user.status === 'VERIFIED'
+        ? <Navigate to="/dashboard/alumni" replace />
+        : <Navigate to="/account-status" replace />;
+    }
     if (user.role === 'ADMIN') return <Navigate to="/dashboard/admin" replace />;
   }
 

@@ -26,6 +26,7 @@ import { Button } from '../components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { api, StudentRegistrationResponse } from '../lib/api';
+import { AlumniRegisterPage } from './AlumniRegisterPage';
 
 const DEPARTMENTS = [
   'Computer Science and Engineering',
@@ -197,59 +198,9 @@ export const RegisterPage: React.FC = () => {
     }
   };
 
-  // If visitor specifically asked for Alumni registration, show transparent institutional guidance
+  // If visitor specifically asked for Alumni registration, render dedicated Alumni onboarding
   if (requestedRole === 'ALUMNI') {
-    return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div className="sm:mx-auto sm:w-full sm:max-w-md">
-          <div className="text-center mb-6">
-            <Link to="/" className="inline-flex items-center gap-2 group">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-navy-900 text-white shadow-sm transition-transform group-hover:scale-105">
-                <GraduationCap className="h-6 w-6 text-brand-400" />
-              </div>
-              <span className="font-bold text-navy-950 text-xl tracking-tight">ALUMNI CONNECT</span>
-            </Link>
-          </div>
-
-          <Card className="shadow-lg border-slate-200 bg-white">
-            <CardHeader className="text-center pb-4">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-50 text-brand-700 mb-2">
-                <ShieldCheck className="h-6 w-6" />
-              </div>
-              <CardTitle className="text-xl text-navy-950">Alumni Onboarding by Invitation</CardTitle>
-              <CardDescription className="text-slate-600 text-xs mt-1">
-                To guarantee zero fake profiles and protect students, graduate accounts require administrative degree verification.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 text-xs text-slate-600">
-              <div className="rounded-lg bg-slate-50 p-4 border border-slate-200 space-y-2">
-                <p className="font-semibold text-navy-950">How Alumni Verification Works:</p>
-                <ul className="list-disc list-inside space-y-1 text-slate-600">
-                  <li>Direct batch invitations issued via official university convocation archives.</li>
-                  <li>Official LinkedIn OpenID Connect credential sync.</li>
-                  <li>Human-in-the-loop review by the Alumni Relations Office.</li>
-                </ul>
-              </div>
-              <div className="flex flex-col gap-2 pt-2">
-                <Link to="/register" className="w-full">
-                  <Button variant="navy" className="w-full text-xs">
-                    Register as Current Student Instead
-                  </Button>
-                </Link>
-                <Link to="/login" className="w-full">
-                  <Button variant="outline" className="w-full text-xs border-slate-300">
-                    Sign In with Existing Credentials
-                  </Button>
-                </Link>
-                <Link to="/" className="w-full text-center text-xs text-brand-600 hover:underline pt-2">
-                  ← Return to Alumni Connect Homepage
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
+    return <AlumniRegisterPage />;
   }
 
   // Confirmation View (Rendered after successful registration submission)
@@ -386,10 +337,18 @@ export const RegisterPage: React.FC = () => {
         <Card className="shadow-xl border-slate-200/90 bg-white">
           <CardHeader className="space-y-1 pb-4 border-b border-slate-100">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-brand-50 text-brand-700 border border-brand-200">
-                <GraduationCap className="h-3.5 w-3.5" />
-                <span>Student Membership</span>
-              </span>
+              <div className="inline-flex items-center rounded-lg bg-slate-100 p-1 border border-slate-200">
+                <span className="rounded-md bg-white px-2.5 py-1 text-xs font-bold text-navy-950 shadow-sm flex items-center gap-1.5">
+                  <GraduationCap className="h-3.5 w-3.5 text-brand-600" />
+                  <span>Current Student</span>
+                </span>
+                <Link
+                  to="/register?role=ALUMNI"
+                  className="rounded-md px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-navy-950 transition-colors"
+                >
+                  Graduated Alumni →
+                </Link>
+              </div>
               <Link to="/login" className="text-xs font-semibold text-brand-600 hover:underline">
                 Already registered? Sign In
               </Link>

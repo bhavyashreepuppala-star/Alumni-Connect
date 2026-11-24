@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { AlumniRegisterPage } from './pages/AlumniRegisterPage';
 import { AccountStatusPage } from './pages/AccountStatusPage';
 import { StudentDashboard } from './pages/dashboards/StudentDashboard';
 import { AlumniDashboard } from './pages/dashboards/AlumniDashboard';
@@ -45,12 +46,20 @@ export const App: React.FC = () => {
               </GuestOnlyRoute>
             }
           />
+          <Route
+            path="/register/alumni"
+            element={
+              <GuestOnlyRoute>
+                <AlumniRegisterPage />
+              </GuestOnlyRoute>
+            }
+          />
 
-          {/* Account status portal: authenticated students only */}
+          {/* Account status portal: authenticated students & alumni */}
           <Route
             path="/account-status"
             element={
-              <ProtectedRoute requiredRole="STUDENT">
+              <ProtectedRoute>
                 <AccountStatusPage />
               </ProtectedRoute>
             }
@@ -66,11 +75,11 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Alumni Dashboard: alumni role only */}
+          {/* Alumni Dashboard: verified alumni only */}
           <Route
             path="/dashboard/alumni"
             element={
-              <ProtectedRoute requiredRole="ALUMNI">
+              <ProtectedRoute requiredRole="ALUMNI" requireVerified>
                 <AlumniDashboard />
               </ProtectedRoute>
             }

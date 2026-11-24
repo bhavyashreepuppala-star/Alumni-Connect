@@ -246,6 +246,207 @@ export interface AlumniDirectoryItem {
   mentorshipTopics?: string | null;
 }
 
+export interface AlumniRegistrationPayload {
+  fullName: string;
+  email: string;
+  phoneNumber?: string;
+  password: string;
+  confirmPassword: string;
+  rollNumber: string;
+  collegeName?: string;
+  department: string;
+  graduationYear: number;
+  degree: string;
+  currentCompany?: string;
+  currentDesignation?: string;
+  industry?: string;
+  yearsOfExperience?: number;
+  city?: string;
+  country?: string;
+  linkedinUrl?: string;
+  skills?: string[] | string;
+  bio?: string;
+  mentorshipTopics?: string;
+  isWillingToMentor?: boolean;
+  maxMentees?: number;
+}
+
+export interface AlumniRegistrationResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: {
+      id: string;
+      email: string;
+      fullName: string;
+      phoneNumber?: string | null;
+      role: string;
+      status: string;
+      isEmailVerified: boolean;
+      createdAt: string;
+    };
+    profile: {
+      id: string;
+      rollNumber?: string | null;
+      collegeName?: string | null;
+      department: string;
+      degree: string;
+      graduationYear: number;
+      currentCompany?: string | null;
+      currentDesignation?: string | null;
+      industry?: string | null;
+      yearsOfExperience: number;
+      city?: string | null;
+      country?: string | null;
+      isWillingToMentor: boolean;
+      maxMentees: number;
+      mentorshipTopics?: string | null;
+      isVerified: boolean;
+    };
+    verification: {
+      id: string;
+      status: string;
+      documentType: string;
+    };
+  };
+}
+
+export interface AlumniDashboardData {
+  alumni: {
+    id: string;
+    profileId: string;
+    fullName: string;
+    email: string;
+    phoneNumber?: string | null;
+    avatarUrl?: string | null;
+    status: string;
+    isVerified: boolean;
+    rollNumber?: string | null;
+    collegeName?: string | null;
+    department: string;
+    degree: string;
+    graduationYear: number;
+    currentCompany?: string | null;
+    currentDesignation?: string | null;
+    industry?: string | null;
+    yearsOfExperience: number;
+    city?: string | null;
+    country?: string | null;
+    bio?: string | null;
+    linkedinUrl?: string | null;
+    isWillingToMentor: boolean;
+    maxMentees: number;
+    mentorshipTopics?: string | null;
+    latestVerification?: {
+      id: string;
+      status: string;
+      documentType: string;
+      submissionNotes?: string | null;
+      createdAt: string;
+    } | null;
+  };
+  metrics: {
+    mentorshipRequestsReceived: number;
+    activeMentorships: number;
+    pendingRequestsCount: number;
+    studentsMentoredCount: number;
+    upcomingEventsCount: number;
+    skillsCount: number;
+    profileCompletionPercentage: number;
+  };
+  recentRequests: Array<{
+    id: string;
+    studentName: string;
+    studentRoll: string;
+    studentDept: string;
+    studentAvatar?: string | null;
+    studentEmail: string;
+    topic: string;
+    message: string;
+    status: string;
+    alumniResponseNote?: string | null;
+    createdAt: string;
+    session?: {
+      scheduledAt: string;
+      durationMinutes: number;
+      meetingType: string;
+      meetingUrl?: string | null;
+      status: string;
+    } | null;
+  }>;
+  announcements: Array<{
+    id: string;
+    title: string;
+    category: string;
+    content: string;
+    priority: string;
+    publishedAt: string;
+  }>;
+}
+
+export interface AlumniVerificationStatusData {
+  accountStatus: 'PENDING_VERIFICATION' | 'VERIFIED' | 'REJECTED' | 'SUSPENDED';
+  isVerified: boolean;
+  fullName?: string | null;
+  email: string;
+  phoneNumber?: string | null;
+  rollNumber?: string | null;
+  collegeName?: string | null;
+  department: string;
+  degree: string;
+  graduationYear: number;
+  currentCompany?: string | null;
+  currentDesignation?: string | null;
+  industry?: string | null;
+  yearsOfExperience: number;
+  city?: string | null;
+  country?: string | null;
+  bio?: string | null;
+  linkedinUrl?: string | null;
+  isWillingToMentor: boolean;
+  mentorshipTopics?: string | null;
+  verification?: {
+    id: string;
+    status: string;
+    documentType: string;
+    submissionNotes?: string | null;
+    publicReviewReason?: string | null;
+    createdAt: string;
+  } | null;
+  appeal?: {
+    id: string;
+    status: string;
+    appealStatement: string;
+    verdict?: string | null;
+    createdAt: string;
+  } | null;
+}
+
+export interface AlumniMentorshipRequestItem {
+  id: string;
+  studentName: string;
+  studentRoll: string;
+  studentDept: string;
+  studentDegree: string;
+  studentSemester?: number | null;
+  studentAvatar?: string | null;
+  studentEmail: string;
+  studentPhone?: string | null;
+  topic: string;
+  message: string;
+  status: string;
+  alumniResponseNote?: string | null;
+  createdAt: string;
+  session?: {
+    id: string;
+    scheduledAt: string;
+    durationMinutes: number;
+    meetingType: string;
+    meetingUrl?: string | null;
+    status: string;
+  } | null;
+}
+
 export interface MentorshipItem {
   id: string;
   topic: string;
@@ -471,5 +672,159 @@ export const api = {
       throw new Error(json.message || 'Failed to fetch mentorship requests');
     }
     return json.data.mentorships;
+  },
+
+  // -------------------------------------------------------------
+  // ALUMNI MODULE METHODS (PHASE 3)
+  // -------------------------------------------------------------
+  async registerAlumni(payload: AlumniRegistrationPayload): Promise<AlumniRegistrationResponse> {
+    const res = await fetch(`${API_BASE}/auth/register/alumni`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+
+    if (!res.ok) {
+      const errorMsg =
+        json.errors && Array.isArray(json.errors) && json.errors.length > 0
+          ? json.errors.map((e: { message?: string }) => e.message || '').filter(Boolean).join('; ')
+          : json.message || 'Alumni registration failed';
+      throw new Error(errorMsg);
+    }
+
+    return json;
+  },
+
+  async getAlumniProfile(): Promise<any> {
+    const res = await fetch(`${API_BASE}/alumni/profile`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch alumni profile');
+    }
+    return json.data;
+  },
+
+  async updateAlumniProfile(payload: {
+    fullName?: string;
+    phoneNumber?: string;
+    currentCompany?: string;
+    currentDesignation?: string;
+    industry?: string;
+    yearsOfExperience?: number;
+    city?: string;
+    country?: string;
+    bio?: string;
+    linkedinUrl?: string;
+    isWillingToMentor?: boolean;
+    maxMentees?: number;
+    mentorshipTopics?: string;
+    skills?: string[] | string;
+  }): Promise<{ user: any; profile: any }> {
+    const res = await fetch(`${API_BASE}/alumni/profile`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      const errorMsg =
+        json.errors && Array.isArray(json.errors) && json.errors.length > 0
+          ? json.errors.map((e: { message?: string }) => e.message || '').filter(Boolean).join('; ')
+          : json.message || 'Failed to update alumni profile';
+      throw new Error(errorMsg);
+    }
+    return json.data;
+  },
+
+  async getAlumniDashboard(): Promise<AlumniDashboardData> {
+    const res = await fetch(`${API_BASE}/alumni/dashboard`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch alumni dashboard summary');
+    }
+    return json.data;
+  },
+
+  async getAlumniVerificationStatus(): Promise<AlumniVerificationStatusData> {
+    const res = await fetch(`${API_BASE}/alumni/verification-status`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch alumni verification status');
+    }
+    return json.data;
+  },
+
+  async submitAlumniVerificationAppeal(statement: string, supplementalDocUrl?: string): Promise<any> {
+    const res = await fetch(`${API_BASE}/alumni/verification-appeal`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ appealStatement: statement, supplementalDocUrl }),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to submit alumni verification appeal');
+    }
+    return json.data;
+  },
+
+  async getAlumniMentorshipRequests(): Promise<AlumniMentorshipRequestItem[]> {
+    const res = await fetch(`${API_BASE}/alumni/mentorship-requests`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch mentorship requests');
+    }
+    return json.data.requests;
+  },
+
+  async respondToMentorshipRequest(
+    requestId: string,
+    payload: {
+      action: 'ACCEPT' | 'DECLINE';
+      responseNote?: string;
+      scheduledAt?: string;
+      durationMinutes?: number;
+      meetingType?: string;
+      meetingUrl?: string;
+    }
+  ): Promise<any> {
+    const res = await fetch(`${API_BASE}/alumni/mentorship-requests/${requestId}`, {
+      method: 'PATCH',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to respond to mentorship request');
+    }
+    return json.data;
+  },
+
+  async getAlumniAnnouncements(): Promise<any[]> {
+    const res = await fetch(`${API_BASE}/alumni/announcements`, {
+      headers: getAuthHeaders(),
+    });
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.message || 'Failed to fetch announcements');
+    }
+    return json.data.announcements;
   },
 };

@@ -73,7 +73,12 @@ export const LoginPage: React.FC = () => {
           navigate('/account-status');
         }
       } else if (userRole === 'ALUMNI') {
-        navigate('/dashboard/alumni');
+        if (accountStatus === 'VERIFIED') {
+          navigate('/dashboard/alumni');
+        } else {
+          // Unverified alumni go to status portal
+          navigate('/account-status');
+        }
       } else if (userRole === 'ADMIN') {
         navigate('/dashboard/admin');
       } else {

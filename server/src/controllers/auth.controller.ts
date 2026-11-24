@@ -75,6 +75,93 @@ export const studentRegisterSchema = z
     path: ['confirmPassword'],
   });
 
+// Institutional Alumni Registration Schema
+export const alumniRegisterSchema = z
+  .object({
+    // Personal Details
+    fullName: z
+      .string({ required_error: 'Full name is required' })
+      .trim()
+      .min(2, 'Full name must be at least 2 characters')
+      .max(100, 'Full name cannot exceed 100 characters'),
+    email: z
+      .string({ required_error: 'Email address is required' })
+      .trim()
+      .email('Please provide a valid email address')
+      .toLowerCase(),
+    phoneNumber: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(''))
+      .refine(
+        (val) => !val || /^[+]?[(]?[0-9]{1,4}[)]?[-\s./0-9]{6,15}$/.test(val),
+        'Please enter a valid phone number format'
+      ),
+    password: z
+      .string({ required_error: 'Password is required' })
+      .min(8, 'Password must be at least 8 characters long')
+      .regex(
+        passwordRegex,
+        'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character'
+      ),
+    confirmPassword: z.string({ required_error: 'Please confirm your password' }).min(1, 'Please confirm your password'),
+
+    // College Details
+    rollNumber: z
+      .string({ required_error: 'USN or registration number is required' })
+      .trim()
+      .min(3, 'USN / roll number must be at least 3 characters')
+      .max(40, 'USN / roll number cannot exceed 40 characters')
+      .regex(/^[A-Za-z0-9\-_./]+$/, 'USN must contain valid alphanumeric characters and symbols (- _ . /)')
+      .transform((val) => val.toUpperCase()),
+    collegeName: z.string().trim().max(191).optional().default('Alumni Connect University'),
+    department: z
+      .string({ required_error: 'Department is required' })
+      .trim()
+      .min(2, 'Department is required')
+      .max(100, 'Department name cannot exceed 100 characters'),
+    graduationYear: z.coerce
+      .number({ required_error: 'Graduation year is required' })
+      .int('Graduation year must be an integer')
+      .min(1950, 'Graduation year must be 1950 or later')
+      .max(new Date().getFullYear(), 'Graduation year cannot be in the future'),
+    degree: z
+      .string({ required_error: 'Degree / Program is required' })
+      .trim()
+      .min(2, 'Degree/program is required')
+      .max(100, 'Degree name cannot exceed 100 characters')
+      .default('B.Tech'),
+
+    // Professional Details
+    currentCompany: z.string().trim().max(100).optional().or(z.literal('')),
+    currentDesignation: z.string().trim().max(100).optional().or(z.literal('')),
+    industry: z.string().trim().max(100).optional().or(z.literal('')),
+    yearsOfExperience: z.coerce.number().min(0).max(60).default(0),
+    city: z.string().trim().max(100).optional().or(z.literal('')),
+    country: z.string().trim().max(100).optional().or(z.literal('')),
+    linkedinUrl: z
+      .string()
+      .trim()
+      .optional()
+      .or(z.literal(''))
+      .refine(
+        (val) => !val || /^https?:\/\/(www\.)?linkedin\.com\/.*$/i.test(val) || /^linkedin\.com\/.*$/i.test(val) || /^[a-zA-Z0-9_-]+$/.test(val),
+        'Please enter a valid LinkedIn URL or profile path'
+      ),
+    skills: z.union([z.array(z.string().trim()), z.string().trim()]).optional(),
+
+    // Additional Information
+    bio: z.string().trim().max(2000).optional().or(z.literal('')),
+    mentorshipTopics: z.string().trim().max(500).optional().or(z.literal('')),
+    isWillingToMentor: z.coerce.boolean().default(true).optional(),
+    maxMentees: z.coerce.number().min(1).max(20).default(2).optional(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Password confirmation does not match the password',
+    path: ['confirmPassword'],
+  });
+
 // Generic Registration Schema (Backward Compatibility)
 const legacyRegisterSchema = z.object({
   email: z.string().email('Please provide a valid institutional email address'),
@@ -230,8 +317,187 @@ export class AuthController {
   }
 
   /**
+   * Dedicated Alumni Registration Endpoint (POST /api/auth/register/alumni)
+   * Strictly validates alumni information, prevents duplicate USN and email,
+   * hashes passwords with bcrypt, creates User + AlumniProfile + AlumniVerification in a transaction.
+   * New accounts always start in PENDING_VERIFICATION.
+   */
+  static async registerAlumni(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
+    try {
+      const parsed = alumniRegisterSchema.parse(req.body);
+
+      const normalizedEmail = parsed.email.trim().toLowerCase();
+      const normalizedUSN = parsed.rollNumber.trim().toUpperCase();
+
+      // Check for duplicate institutional/personal email
+      const existingUserByEmail = await prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+
+      if (existingUserByEmail) {
+        throw new ConflictError('An account with this email address already exists');
+      }
+
+      // Check for duplicate USN in AlumniProfile
+      const existingAlumniByUSN = await prisma.alumniProfile.findUnique({
+        where: { rollNumber: normalizedUSN },
+      });
+
+      if (existingAlumniByUSN) {
+        throw new ConflictError('An alumni profile with this USN / registration number already exists');
+      }
+
+      // Also check if claimed USN is currently an active StudentProfile
+      const existingStudentByUSN = await prisma.studentProfile.findUnique({
+        where: { rollNumber: normalizedUSN },
+      });
+
+      if (existingStudentByUSN) {
+        throw new ConflictError(
+          'This registration number is currently registered under an active student account. Please contact administration for transition assistance.'
+        );
+      }
+
+      // Hash password using bcrypt with work factor 10
+      const passwordHash = await bcrypt.hash(parsed.password, 10);
+
+      // Parse skills array if provided
+      const skillNames: string[] = [];
+      if (Array.isArray(parsed.skills)) {
+        parsed.skills.forEach((s) => {
+          if (typeof s === 'string' && s.trim().length > 0) skillNames.push(s.trim());
+        });
+      } else if (typeof parsed.skills === 'string' && parsed.skills.trim().length > 0) {
+        parsed.skills.split(',').forEach((s) => {
+          if (s.trim().length > 0) skillNames.push(s.trim());
+        });
+      }
+
+      // Create User, AlumniProfile, AlumniVerification and optional UserSkills in a Prisma transaction
+      const { newUser, newProfile, newVerification } = await prisma.$transaction(async (tx) => {
+        // 1. Create User account with server-assigned ALUMNI role and PENDING_VERIFICATION status
+        const user = await tx.user.create({
+          data: {
+            email: normalizedEmail,
+            passwordHash,
+            role: UserRole.ALUMNI, // Strictly enforced on backend
+            status: AccountStatus.PENDING_VERIFICATION, // Always pending initial verification
+            fullName: parsed.fullName.trim(),
+            phoneNumber: parsed.phoneNumber && parsed.phoneNumber.trim().length > 0 ? parsed.phoneNumber.trim() : null,
+            isEmailVerified: false,
+            isActive: true,
+          },
+        });
+
+        // 2. Create AlumniProfile record
+        const profile = await tx.alumniProfile.create({
+          data: {
+            userId: user.id,
+            rollNumber: normalizedUSN,
+            collegeName: parsed.collegeName || 'Alumni Connect University',
+            department: parsed.department.trim(),
+            degree: parsed.degree ? parsed.degree.trim() : 'B.Tech',
+            graduationYear: parsed.graduationYear,
+            currentCompany: parsed.currentCompany && parsed.currentCompany.trim().length > 0 ? parsed.currentCompany.trim() : null,
+            currentDesignation: parsed.currentDesignation && parsed.currentDesignation.trim().length > 0 ? parsed.currentDesignation.trim() : null,
+            industry: parsed.industry && parsed.industry.trim().length > 0 ? parsed.industry.trim() : null,
+            yearsOfExperience: parsed.yearsOfExperience || 0,
+            city: parsed.city && parsed.city.trim().length > 0 ? parsed.city.trim() : null,
+            country: parsed.country && parsed.country.trim().length > 0 ? parsed.country.trim() : null,
+            bio: parsed.bio && parsed.bio.trim().length > 0 ? parsed.bio.trim() : null,
+            linkedinUrl: parsed.linkedinUrl && parsed.linkedinUrl.trim().length > 0 ? parsed.linkedinUrl.trim() : null,
+            isWillingToMentor: parsed.isWillingToMentor !== undefined ? parsed.isWillingToMentor : true,
+            maxMentees: parsed.maxMentees || 2,
+            mentorshipTopics: parsed.mentorshipTopics && parsed.mentorshipTopics.trim().length > 0 ? parsed.mentorshipTopics.trim() : null,
+            isVerified: false, // Strictly unverified upon registration
+          },
+        });
+
+        // 3. Create AlumniVerification audit record
+        const verification = await tx.alumniVerification.create({
+          data: {
+            alumniProfileId: profile.id,
+            status: VerificationStatus.PENDING,
+            documentType: 'ALUMNI_SELF_REGISTRATION',
+            documentUrl: null,
+            submissionNotes: 'Self-registered alumni account awaiting institutional credential review by CDC / Alumni Relations Office.',
+          },
+        });
+
+        // 4. Attach skills if provided
+        for (const skillName of skillNames.slice(0, 15)) {
+          const slug = skillName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          const skill = await tx.skill.upsert({
+            where: { slug },
+            update: {},
+            create: {
+              name: skillName,
+              slug,
+              category: 'General',
+            },
+          });
+
+          await tx.userSkill.create({
+            data: {
+              userId: user.id,
+              skillId: skill.id,
+              proficiency: 'ADVANCED',
+            },
+          });
+        }
+
+        return { newUser: user, newProfile: profile, newVerification: verification };
+      });
+
+      return ApiResponse.success(res, {
+        statusCode: 201,
+        message:
+          'Alumni registration submitted successfully. Your account is pending verification by the Alumni Relations Office / Career Development Center.',
+        data: {
+          user: {
+            id: newUser.id,
+            email: newUser.email,
+            fullName: newUser.fullName,
+            phoneNumber: newUser.phoneNumber,
+            role: newUser.role,
+            status: newUser.status,
+            isEmailVerified: newUser.isEmailVerified,
+            createdAt: newUser.createdAt,
+          },
+          profile: {
+            id: newProfile.id,
+            rollNumber: newProfile.rollNumber,
+            collegeName: newProfile.collegeName,
+            department: newProfile.department,
+            degree: newProfile.degree,
+            graduationYear: newProfile.graduationYear,
+            currentCompany: newProfile.currentCompany,
+            currentDesignation: newProfile.currentDesignation,
+            industry: newProfile.industry,
+            yearsOfExperience: newProfile.yearsOfExperience,
+            city: newProfile.city,
+            country: newProfile.country,
+            isWillingToMentor: newProfile.isWillingToMentor,
+            maxMentees: newProfile.maxMentees,
+            mentorshipTopics: newProfile.mentorshipTopics,
+            isVerified: newProfile.isVerified,
+          },
+          verification: {
+            id: newVerification.id,
+            status: newVerification.status,
+            documentType: newVerification.documentType,
+          },
+        },
+      });
+    } catch (err) {
+      next(err);
+      return;
+    }
+  }
+
+  /**
    * Generic Registration Endpoint (POST /api/auth/register)
-   * Dispatches to student registration or handles legacy/fallback roles.
+   * Dispatches to student registration or alumni registration based on role.
    */
   static async register(req: Request, res: Response, next: NextFunction): Promise<Response | void> {
     try {
@@ -251,11 +517,13 @@ export class AuthController {
         }
         req.body = body;
         return AuthController.registerStudent(req, res, next);
+      } else if (role === 'ALUMNI') {
+        return AuthController.registerAlumni(req, res, next);
       }
 
-      // Alumni and Admin registration are reserved for Phase 2/Administration
+      // Admin self-registration is never allowed
       throw new BadRequestError(
-        'Self-registration is currently restricted to Students. Alumni onboarding is managed through institutional invitation.'
+        'Self-registration is not permitted for administrative accounts. Admin accounts are provisioned directly by institution administrators.'
       );
     } catch (err) {
       next(err);

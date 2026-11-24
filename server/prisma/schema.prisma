@@ -363,6 +363,8 @@ model AlumniProfile {
   id                 String               @id @default(cuid())
   userId             String               @unique
   user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rollNumber         String?              @unique
+  collegeName        String?              @default("Alumni Connect University")
   graduationYear     Int
   degree             String               @default("B.Tech")
   department         String
@@ -389,6 +391,7 @@ model AlumniProfile {
   @@index([graduationYear])
   @@index([isVerified])
   @@index([isWillingToMentor])
+  @@index([rollNumber])
 }
 
 // -------------------------------------------------------------
@@ -449,8 +452,8 @@ model AlumniVerification {
   alumniProfileId   String
   alumniProfile     AlumniProfile      @relation(fields: [alumniProfileId], references: [id], onDelete: Cascade)
   status            VerificationStatus @default(PENDING)
-  documentType      String
-  documentUrl       String
+  documentType      String             @default("DEGREE_CERTIFICATE")
+  documentUrl       String?
   submissionNotes   String?            @db.Text
   reviewNotes       String?            @db.Text
   reviewedByAdminId String?

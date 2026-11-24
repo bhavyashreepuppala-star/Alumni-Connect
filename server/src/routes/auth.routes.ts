@@ -7,7 +7,10 @@ const router = Router();
 // Student-specific registration endpoint
 router.post('/register/student', AuthController.registerStudent);
 
-// Universal / legacy registration endpoint
+// Alumni-specific registration endpoint
+router.post('/register/alumni', AuthController.registerAlumni);
+
+// Universal registration endpoint
 router.post('/register', AuthController.register);
 
 // Authentication & Session
